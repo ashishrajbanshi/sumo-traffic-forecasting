@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+.env/
+venv/
+env/
+
+# Claude
+.claude/
+
+# ── Simulation outputs (large XML files) ──────────────────────────────────────
+output/jan2026/
+detectors/detector_output*.xml
+detector_output.xml
+edgeData.xml
+stats.xml
+tripinfos.xml
+
+# ── Route files (generated, large) ────────────────────────────────────────────
+routes/january_2026/
+routes/trips_weekday_raw.xml
+routes/trips_weekend_raw.xml
+routes/osm.passenger.trips.xml
+routes.rou.xml
+combined_trips_weekday.rou.xml
+
+# ── Traffic data (HDF5, large) ────────────────────────────────────────────────
+data/traffic/
+*.h5
+
+# ── Graph & dataset files (generated, binary) ─────────────────────────────────
+data/graph/*.pkl
+gnn/data/*.pkl
+gnn/data/*.npz
+gnn/data/runs/
+
+# ── DCRNN generated data & checkpoints ────────────────────────────────────────
+DCRNN/data/chattanooga/
+DCRNN/data/sensor_graph/adj_mx_chattanooga.pkl
+DCRNN/data/model/dcrnn_pt_*/
+*.pt
+*.npy
+
+# ── Network files (large compressed) ──────────────────────────────────────────
+network/osm.poly.xml.gz
+network/osm_bbox.osm.xml.gz
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+output/dua.log
+output/stdout.log
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+*.DS_Store
+Thumbs.db
+*.swp
+*.swo

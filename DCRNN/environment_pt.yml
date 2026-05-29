@@ -1,0 +1,18 @@
+name: dcrnn_pt
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+    - --index-url https://download.pytorch.org/whl/nightly/cu128
+    - torch
+    - torchvision
+    - pyyaml>=6.0
+    - scipy>=1.11
+    - numpy>=1.24
+    - pandas>=2.0
+    - tables>=3.9

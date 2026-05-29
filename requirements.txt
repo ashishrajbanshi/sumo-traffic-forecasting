@@ -1,0 +1,18 @@
+# Core scientific stack
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+pyyaml>=6.0
+tables>=3.8.0          # HDF5 / PyTables (pd.read_hdf)
+matplotlib>=3.7.0
+
+# PyTorch — Blackwell GPU (compute capability 12.0) requires nightly build
+# Install manually:
+#   pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cu128
+# Standard install (non-Blackwell):
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+torch>=2.1.0
+
+# SUMO Python bindings (install with SUMO, or via pip)
+# sumolib and traci are bundled with SUMO installation
+# If not on PATH: pip install eclipse-sumo

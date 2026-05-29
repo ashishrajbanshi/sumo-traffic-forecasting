@@ -1,0 +1,9 @@
+ # Run SUMO 10 times for weekday (seeds 1–10)
+  for i in $(seq 1 10); do
+      sumo -c config/sumo_chattanooga_weekdays.sumocfg --seed $i
+      cp detectors/detector_output_weekday.xml detectors/detector_output_weekday_$i.xml
+  done
+
+  # Parse all 10 runs — cycles Mon→Fri×2 automatically
+  python3 script/parse_detector_output.py --day-type weekday \
+      --extra-runs $(ls detectors/detector_output_weekday_*.xml | sort)
