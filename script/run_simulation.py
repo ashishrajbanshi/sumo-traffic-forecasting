@@ -70,6 +70,8 @@ def run_day(day: date, dry_run: bool = False) -> tuple:
     # straight into the dated directory — no shared file, no race condition.
     output_prefix = out_dir + os.sep
 
+    # --output-prefix prepends to ALL output filenames (including cmd-line ones),
+    # so pass bare filenames here — SUMO writes them into out_dir via the prefix.
     cmd = [
         "sumo",
         "-c",                    sumocfg,
@@ -77,9 +79,9 @@ def run_day(day: date, dry_run: bool = False) -> tuple:
         "--route-files",         route_file,
         "--additional-files",    det_add,
         "--output-prefix",       output_prefix,
-        "--tripinfo-output",     os.path.join(out_dir, "tripinfos.xml"),
-        "--statistic-output",    os.path.join(out_dir, "stats.xml"),
-        "--queue-output",        os.path.join(out_dir, "queue_output.xml"),
+        "--tripinfo-output",     "tripinfos.xml",
+        "--statistic-output",    "stats.xml",
+        "--queue-output",        "queue_output.xml",
         "--no-step-log",         "true",
         "--ignore-route-errors", "true",
     ]
