@@ -32,7 +32,8 @@ SIM_DIR      = os.path.normpath(os.path.join(SCRIPT_DIR, ".."))
 NET_FILE     = os.path.join(SIM_DIR, "network", "osm.net.xml")
 OUT_DIR      = os.path.join(SCRIPT_DIR, "january_2026")
 
-RANDOM_TRIPS = "/usr/share/sumo/tools/randomTrips.py"
+SUMO_HOME = os.environ["SUMO_HOME"]
+RANDOM_TRIPS = os.path.join(SUMO_HOME, "tools", "randomTrips.py")
 DUAROUTER    = "duarouter"
 
 # ── Period ranges ──────────────────────────────────────────────────────────────
