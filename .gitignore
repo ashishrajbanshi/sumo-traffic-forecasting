@@ -47,8 +47,8 @@ DCRNN/data/model/dcrnn_pt_*/
 *.npy
 
 # ── Network files (large compressed) ──────────────────────────────────────────
-network/osm.poly.xml.gz
-network/osm_bbox.osm.xml.gz
+# network/osm.poly.xml.gz
+# network/osm_bbox.osm.xml.gz
 
 # ── Logs ──────────────────────────────────────────────────────────────────────
 *.log
@@ -60,3 +60,4 @@ output/stdout.log
 Thumbs.db
 *.swp
 *.swo
+DCRNN/data/sensor_graph/distances_chattanooga.csv
