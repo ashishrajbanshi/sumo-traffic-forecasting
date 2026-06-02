@@ -133,7 +133,9 @@ def build_ref_speeds(det_to_lane, net_file):
     missing = 0
     for det_id, lane_id in det_to_lane.items():
         try:
-            ref[det_id] = net.getLane(lane_id).getSpeed() * MS_TO_MPH
+            edge_id  = lane_id.rsplit("_", 1)[0]
+            lane_idx = int(lane_id.rsplit("_", 1)[1])
+            ref[det_id] = net.getEdge(edge_id).getLane(lane_idx).getSpeed() * MS_TO_MPH
         except Exception:
             ref[det_id] = 30.0
             missing += 1
@@ -300,12 +302,13 @@ def run_jan2026(input_dir, net_file, output_h5, aggregate):
     signal_frames = {sig: [] for sig in SIGNALS}
 
     for date_str in entries:
-        xml_path = os.path.join(input_dir, date_str, "detector_output.xml")
+        anchor   = pd.Timestamp(date_str)
+        suffix   = "weekend" if anchor.weekday() >= 5 else "weekday"
+        xml_path = os.path.join(input_dir, date_str, f"detector_output_{suffix}.xml")
         if not os.path.exists(xml_path):
-            print(f"  Skipping {date_str} — detector_output.xml not found")
+            print(f"  Skipping {date_str} — detector_output_{suffix}.xml not found")
             continue
 
-        anchor   = pd.Timestamp(date_str)
         day_name = anchor.strftime("%A")
         print(f"\n  {date_str} {day_name}")
 
