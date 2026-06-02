@@ -101,9 +101,14 @@ def lane_to_edge(lane_id):
 
 # ── Coordinate conversion ──────────────────────────────────────────────────────
 
+_first_lane_error = True
+
 def detector_to_latlon(lane_id, pos_m, net, sumolib):
+    global _first_lane_error
     try:
-        lane  = net.getLane(lane_id)
+        edge_id  = lane_id.rsplit("_", 1)[0]
+        lane_idx = int(lane_id.rsplit("_", 1)[1])
+        lane     = net.getEdge(edge_id).getLane(lane_idx)
         shape = lane.getShape()
         if len(shape) < 2:
             x, y = shape[0]
@@ -111,7 +116,10 @@ def detector_to_latlon(lane_id, pos_m, net, sumolib):
             x, y = sumolib.geomhelper.positionAtShapeOffset(shape, pos_m)
         lon, lat = net.convertXY2LonLat(x, y)
         return lat, lon
-    except Exception:
+    except Exception as exc:
+        if _first_lane_error:
+            print(f"  (first lane lookup failure — {lane_id!r}: {exc})")
+            _first_lane_error = False
         return None
 
 
@@ -152,9 +160,15 @@ def aggregate_detector_output(jan2026_dir, det_id_to_edge, canonical_nodes):
     print(f"\n  Aggregating detector output from {len(date_dirs)} days …")
 
     for date_str in date_dirs:
-        det_file = os.path.join(jan2026_dir, date_str, "detector_output.xml")
-        if not os.path.exists(det_file):
-            print(f"  Warning: missing {det_file}")
+        day = date_str  # YYYY-MM-DD
+        # Simulations write weekday or weekend files; try both.
+        for suffix in ("weekday", "weekend"):
+            candidate = os.path.join(jan2026_dir, day, f"detector_output_{suffix}.xml")
+            if os.path.exists(candidate):
+                det_file = candidate
+                break
+        else:
+            print(f"  Warning: missing detector output for {date_str}")
             continue
 
         for _, elem in ET.iterparse(det_file, events=("end",)):
@@ -394,9 +408,10 @@ def main():
     print(f"\nSummary")
     print(f"  Nodes written    : {len(rows):,}")
     print(f"  Nodes skipped    : {len(skipped)}")
-    print(f"  Multi-lane nodes : {multi_lane:,} "
-          f"({100*multi_lane/len(rows):.1f}% — lanes collapsed to 1 node)")
-    print(f"  Single-lane nodes: {len(rows) - multi_lane:,}")
+    if rows:
+        print(f"  Multi-lane nodes : {multi_lane:,} "
+              f"({100*multi_lane/len(rows):.1f}% — lanes collapsed to 1 node)")
+        print(f"  Single-lane nodes: {len(rows) - multi_lane:,}")
     if lat_min is not None:
         print(f"  Bounding box     : lat [{lat_min:.5f}, {lat_max:.5f}]")
         print(f"                     lon [{lon_min:.5f}, {lon_max:.5f}]")
