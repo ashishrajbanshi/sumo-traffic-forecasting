@@ -23,6 +23,7 @@ import argparse
 import os
 import subprocess
 import sys
+import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import date, timedelta
 
@@ -45,13 +46,22 @@ NUM_DAYS   = 30
 
 # ── Single-day runner ──────────────────────────────────────────────────────────
 
-def run_day(day: date, dry_run: bool = False) -> tuple:
-    """
-    Run SUMO for one day. Returns (date_str, success, message).
+def _make_temp_det_file(det_add: str, day_type: str, abs_output: str) -> str:
+    """Return path to a temp additional file with the detector output path set to abs_output."""
+    with open(det_add) as f:
+        content = f.read()
+    content = content.replace(
+        f'file="detector_output_{day_type}.xml"',
+        f'file="{abs_output}"',
+    )
+    fd, tmp_path = tempfile.mkstemp(suffix=".add.xml", dir=os.path.dirname(det_add))
+    with os.fdopen(fd, "w") as f:
+        f.write(content)
+    return tmp_path
 
-    Uses --output-prefix to redirect detector output (relative path in add.xml)
-    into the dated directory — no shared file, no race condition when parallel.
-    """
+
+def run_day(day: date, dry_run: bool = False) -> tuple:
+    """Run SUMO for one day. Returns (date_str, success, message)."""
     date_str   = day.strftime("%Y-%m-%d")
     is_weekend = day.weekday() >= 5
     day_type   = "weekend" if is_weekend else "weekday"
@@ -66,30 +76,37 @@ def run_day(day: date, dry_run: bool = False) -> tuple:
 
     os.makedirs(out_dir, exist_ok=True)
 
-    # --output-prefix redirects detector output (relative path in add.xml)
-    # straight into the dated directory — no shared file, no race condition.
-    output_prefix = out_dir + os.sep
+    # Write a per-day temp additional file with the absolute detector output path.
+    # --output-prefix can't be used here: SUMO string-concatenates the additional
+    # file's directory with the prefix, producing a doubled path when the prefix
+    # is absolute (e.g. detectors//abs/path/file.xml).
+    det_out = os.path.join(out_dir, f"detector_output_{day_type}.xml")
+    tmp_det_add = _make_temp_det_file(det_add, day_type, det_out)
 
-    # --output-prefix prepends to ALL output filenames (including cmd-line ones),
-    # so pass bare filenames here — SUMO writes them into out_dir via the prefix.
     cmd = [
         "sumo",
         "-c",                    sumocfg,
         "--mesosim",             "true",
         "--route-files",         route_file,
-        "--additional-files",    det_add,
-        "--output-prefix",       output_prefix,
-        "--tripinfo-output",     "tripinfos.xml",
-        "--statistic-output",    "stats.xml",
-        "--queue-output",        "queue_output.xml",
+        "--additional-files",    tmp_det_add,
+        "--tripinfo-output",     os.path.join(out_dir, "tripinfos.xml"),
+        "--statistic-output",    os.path.join(out_dir, "stats.xml"),
+        "--queue-output",        os.path.join(out_dir, "queue_output.xml"),
         "--no-step-log",         "true",
         "--ignore-route-errors", "true",
     ]
 
     if dry_run:
+        os.unlink(tmp_det_add)
         return date_str, True, "  [dry-run] " + " ".join(cmd)
 
-    result = subprocess.run(cmd, cwd=SIM_DIR, capture_output=True, text=True)
+    try:
+        result = subprocess.run(cmd, cwd=SIM_DIR, capture_output=True, text=True)
+    finally:
+        try:
+            os.unlink(tmp_det_add)
+        except OSError:
+            pass
 
     if result.returncode != 0:
         last_lines = "\n".join(result.stderr.splitlines()[-10:])
