@@ -17,7 +17,7 @@ Use edges.csv to build any model's adjacency / weight matrix.
 Usage
 ─────
     python3 script/build_distances.py
-    python3 script/build_distances.py --max-distance 3000
+    python3 script/build_distances.py --max-distance 1000
 """
 
 import os
@@ -41,7 +41,7 @@ ALL_WEEKDAY      = os.path.join(SIM_DIR, "detectors", "detectors_weekday.add.xml
 ALL_WEEKEND      = os.path.join(SIM_DIR, "detectors", "detectors_weekend.add.xml")
 OUT_CSV          = os.path.join(SIM_DIR, "data",      "graph", "edges.csv")
 
-MAX_DISTANCE = 2000.0   # metres — stop Dijkstra beyond this range
+MAX_DISTANCE = 500.0    # metres — stop Dijkstra beyond this range
 
 
 # ── Sumolib loader ─────────────────────────────────────────────────────────────
