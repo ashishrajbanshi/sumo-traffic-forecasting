@@ -18,7 +18,6 @@ Usage
 """
 
 import os
-import random
 import subprocess
 import sys
 from datetime import date, timedelta
@@ -34,13 +33,16 @@ OUT_DIR      = os.path.join(SIM_DIR, "routes","january_2026")
 RANDOM_TRIPS = "/usr/share/sumo/tools/randomTrips.py"
 DUAROUTER    = "duarouter"
 
-# ── Period ranges ──────────────────────────────────────────────────────────────
-
-WEEKDAY_PERIOD_MIN = 1.60
-WEEKDAY_PERIOD_MAX = 1.65
-
-WEEKEND_PERIOD_MIN = 1.83
-WEEKEND_PERIOD_MAX = 1.88
+# ── Time-of-day demand windows ─────────────────────────────────────────────────
+# (begin_s, end_s, weekday_period_s, weekend_period_s)
+# Lower period = more vehicles = higher demand
+TIME_WINDOWS = [
+    (0,      6*3600,  12.0,  15.0),   # night       — very sparse
+    (6*3600, 9*3600,   0.4,   1.8),   # AM peak     — heavy weekday, light weekend
+    (9*3600, 16*3600,  1.8,   1.6),   # midday      — moderate
+    (16*3600,19*3600,  0.4,   1.8),   # PM peak     — heavy weekday, light weekend
+    (19*3600,24*3600,  2.5,   2.5),   # evening     — light
+]
 
 # ── Date range ─────────────────────────────────────────────────────────────────
 
@@ -49,6 +51,19 @@ NUM_DAYS   = 30
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _merge_trip_files(src_files, dst_file):
+    """Concatenate multiple randomTrips XML outputs into one trips file."""
+    import xml.etree.ElementTree as ET
+    root = ET.Element("routes")
+    for src in src_files:
+        tree = ET.parse(src)
+        for elem in tree.getroot():
+            root.append(elem)
+    # Sort by departure time so duarouter gets a clean input
+    root[:] = sorted(root, key=lambda e: float(e.get("depart", 0)))
+    ET.ElementTree(root).write(dst_file, encoding="unicode", xml_declaration=True)
+
 
 def run(cmd, label):
     print(f"\n  [{label}]")
@@ -64,15 +79,12 @@ def run(cmd, label):
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
-    random.seed(42)   # reproducible period choices
-
     os.makedirs(OUT_DIR, exist_ok=True)
 
     print(f"Generating demand + routes for January 2026 ({NUM_DAYS} days)")
     print(f"  Network   : {NET_FILE}")
     print(f"  Output dir: {OUT_DIR}")
-    print(f"  Weekday period : [{WEEKDAY_PERIOD_MIN}, {WEEKDAY_PERIOD_MAX}] s")
-    print(f"  Weekend period : [{WEEKEND_PERIOD_MIN}, {WEEKEND_PERIOD_MAX}] s")
+    print(f"  Time windows   : {len(TIME_WINDOWS)} (night/AM-peak/midday/PM-peak/evening)")
 
     for i in range(NUM_DAYS):
         day        = START_DATE + timedelta(days=i)
@@ -80,31 +92,39 @@ def main():
         day_name   = day.strftime("%A")
         is_weekend = day.weekday() >= 5   # Saturday=5, Sunday=6
 
-        if is_weekend:
-            period = round(random.uniform(WEEKEND_PERIOD_MIN, WEEKEND_PERIOD_MAX), 4)
-        else:
-            period = round(random.uniform(WEEKDAY_PERIOD_MIN, WEEKDAY_PERIOD_MAX), 4)
-
         day_type = "weekend" if is_weekend else "weekday"
         trips_file  = os.path.join(OUT_DIR, f"trips_{date_str}.xml")
         routes_file = os.path.join(OUT_DIR, f"routes_{date_str}.rou.xml")
 
-        print(f"\nDay {i+1:02d}/30  {date_str}  {day_name:<10}  ({day_type})  period={period:.4f}s")
+        print(f"\nDay {i+1:02d}/30  {date_str}  {day_name:<10}  ({day_type})")
 
-        # ── Step 1: randomTrips ────────────────────────────────────────────────
-        run([
-            "python3", RANDOM_TRIPS,
-            "-n", NET_FILE,
-            "-o", trips_file,
-            "--prefix", "trip_",
-            "--trip-attributes", 'departLane="free" departSpeed="max"',
-            "--vehicle-class", "passenger",
-            "--fringe-factor", "10",
-            "--seed", str(i + 1),
-            "--min-distance", "200.0",
-            "--end", "86400.0",
-            "--period", str(period),
-        ], "randomTrips")
+        # ── Step 1: randomTrips — one run per time window ─────────────────────
+        window_files = []
+        for w_idx, (begin, end, wd_p, we_p) in enumerate(TIME_WINDOWS):
+            period    = wd_p if not is_weekend else we_p
+            w_file    = os.path.join(OUT_DIR, f"trips_{date_str}_w{w_idx}.xml")
+            prefix    = f"trip_{w_idx}_"
+            window_files.append(w_file)
+            print(f"  window {w_idx}: {begin//3600:02d}h–{end//3600:02d}h  period={period}s")
+            run([
+                "python3", RANDOM_TRIPS,
+                "-n", NET_FILE,
+                "-o", w_file,
+                "--prefix", prefix,
+                "--trip-attributes", 'departLane="best" departSpeed="avg"',
+                "--vehicle-class", "passenger",
+                "--fringe-factor", "5",
+                "--seed", str(i * 10 + w_idx + 1),
+                "--min-distance", "200.0",
+                "--begin", str(begin),
+                "--end",   str(end),
+                "--period", str(period),
+            ], f"randomTrips w{w_idx}")
+
+        # Merge all window trip files into one
+        _merge_trip_files(window_files, trips_file)
+        for f in window_files:
+            os.remove(f)
 
         # ── Step 2: duarouter ─────────────────────────────────────────────────
         run([
