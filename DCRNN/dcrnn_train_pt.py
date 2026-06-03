@@ -138,7 +138,7 @@ def main(args):
         logger.info(f'GPU: {torch.cuda.get_device_name(0)}')
 
     use_amp = (device.type == 'cuda')
-    amp_scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+    amp_scaler = torch.amp.GradScaler('cuda', enabled=use_amp)
 
     # ── Data ──────────────────────────────────────────────────────────────────
     data = load_dataset(
