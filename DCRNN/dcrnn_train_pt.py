@@ -231,7 +231,7 @@ def main(args):
 
             cl_ratio = _cl_ratio(global_step, cl_decay_steps) if use_curriculum else 0.0
 
-            with torch.cuda.amp.autocast(enabled=use_amp):
+            with torch.amp.autocast('cuda', enabled=use_amp):
                 pred = model(x_batch, y_batch, teacher_forcing_ratio=cl_ratio)
                 loss = masked_mae(pred[..., 0], y_batch[..., 0])
 
