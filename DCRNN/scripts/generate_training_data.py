@@ -54,7 +54,7 @@ def generate_graph_seq2seq_io_data(
 
 
 def generate_train_val_test(args):
-    df = pd.read_hdf(args.traffic_df_filename)
+    df = pd.read_hdf(args.traffic_df_filename, key=args.key)
     # 0 is the latest observed sample.
     x_offsets = np.sort(
         # np.concatenate(([-week_size + 1, -day_size + 1], np.arange(-11, 1, 1)))
@@ -118,6 +118,12 @@ if __name__ == "__main__":
         type=str,
         default="data/metr-la.h5",
         help="Raw traffic readings.",
+    )
+    parser.add_argument(
+        "--key",
+        type=str,
+        default="speed",
+        help="HDF5 dataset key to read (default: speed).",
     )
     args = parser.parse_args()
     main(args)
