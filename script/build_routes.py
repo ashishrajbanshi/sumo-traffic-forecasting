@@ -116,6 +116,10 @@ def main():
 
             print(f"  window {w_idx}: {begin//3600:02d}h–{end//3600:02d}h  period={period}s")
 
+            # SUMO 1.26 randomTrips reads the route file before writing it
+            with open(w_routes, "w") as f:
+                f.write('<routes/>\n')
+
             run([
                 "python3", RANDOM_TRIPS,
                 "-n",              NET_FILE,
