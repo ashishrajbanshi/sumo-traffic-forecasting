@@ -134,7 +134,11 @@ def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logger.info(f'Using device: {device}')
     if device.type == 'cuda':
+        torch.backends.cudnn.benchmark = True
         logger.info(f'GPU: {torch.cuda.get_device_name(0)}')
+
+    use_amp = (device.type == 'cuda')
+    amp_scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
     # ── Data ──────────────────────────────────────────────────────────────────
     data = load_dataset(
@@ -142,6 +146,7 @@ def main(args):
         batch_size     = data_cfg['batch_size'],
         val_batch_size = data_cfg['val_batch_size'],
         test_batch_size= data_cfg['test_batch_size'],
+        num_workers    = args.num_workers,
     )
     scaler = data['scaler']
     logger.info(f"x_train: {data['x_train'].shape}  y_train: {data['y_train'].shape}")
@@ -226,13 +231,16 @@ def main(args):
 
             cl_ratio = _cl_ratio(global_step, cl_decay_steps) if use_curriculum else 0.0
 
-            pred = model(x_batch, y_batch, teacher_forcing_ratio=cl_ratio)
-            loss = masked_mae(pred[..., 0], y_batch[..., 0])
+            with torch.cuda.amp.autocast(enabled=use_amp):
+                pred = model(x_batch, y_batch, teacher_forcing_ratio=cl_ratio)
+                loss = masked_mae(pred[..., 0], y_batch[..., 0])
 
             optimizer.zero_grad()
-            loss.backward()
+            amp_scaler.scale(loss).backward()
+            amp_scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
-            optimizer.step()
+            amp_scaler.step(optimizer)
+            amp_scaler.update()
 
             train_mae_sum += loss.item()
             train_n       += 1
@@ -364,5 +372,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_filename', type=str,
                         default='data/model/dcrnn_chattanooga.yaml')
+    parser.add_argument('--num-workers', type=int, default=4,
+                        help='DataLoader worker processes (default: 4)')
     args = parser.parse_args()
     main(args)

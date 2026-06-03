@@ -4,6 +4,7 @@ import os
 import pickle
 import scipy.sparse as sp
 import torch
+from torch.utils.data import DataLoader as TorchDataLoader, TensorDataset
 
 
 # ── Scaler ─────────────────────────────────────────────────────────────────────
@@ -22,28 +23,20 @@ class StandardScaler:
 
 # ── Data loader ────────────────────────────────────────────────────────────────
 
-class DataLoader:
-    def __init__(self, x, y, batch_size, shuffle=False):
-        self.x = x
-        self.y = y
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.size = len(x)
-
-    def __len__(self):
-        return (self.size + self.batch_size - 1) // self.batch_size
-
-    def __iter__(self):
-        idx = np.arange(self.size)
-        if self.shuffle:
-            np.random.shuffle(idx)
-        for start in range(0, self.size, self.batch_size):
-            end = min(start + self.batch_size, self.size)
-            b = idx[start:end]
-            yield torch.FloatTensor(self.x[b]), torch.FloatTensor(self.y[b])
+def _make_loader(x, y, batch_size, shuffle=False, num_workers=4, pin_memory=True):
+    ds = TensorDataset(torch.FloatTensor(x), torch.FloatTensor(y))
+    return TorchDataLoader(
+        ds,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=(num_workers > 0),
+    )
 
 
-def load_dataset(dataset_dir, batch_size, val_batch_size, test_batch_size, **_):
+def load_dataset(dataset_dir, batch_size, val_batch_size, test_batch_size,
+                 num_workers=4, **_):
     data = {}
     for cat in ('train', 'val', 'test'):
         d = np.load(os.path.join(dataset_dir, f'{cat}.npz'))
@@ -60,10 +53,16 @@ def load_dataset(dataset_dir, batch_size, val_batch_size, test_batch_size, **_):
         data[f'x_{cat}'][..., 0] = scaler.transform(data[f'x_{cat}'][..., 0])
         data[f'y_{cat}'][..., 0] = scaler.transform(data[f'y_{cat}'][..., 0])
 
-    data['train_loader'] = DataLoader(data['x_train'], data['y_train'],
-                                      batch_size, shuffle=True)
-    data['val_loader']   = DataLoader(data['x_val'],   data['y_val'],   val_batch_size)
-    data['test_loader']  = DataLoader(data['x_test'],  data['y_test'],  test_batch_size)
+    pin = torch.cuda.is_available()
+    data['train_loader'] = _make_loader(data['x_train'], data['y_train'],
+                                        batch_size, shuffle=True,
+                                        num_workers=num_workers, pin_memory=pin)
+    data['val_loader']   = _make_loader(data['x_val'],   data['y_val'],
+                                        val_batch_size, num_workers=num_workers,
+                                        pin_memory=pin)
+    data['test_loader']  = _make_loader(data['x_test'],  data['y_test'],
+                                        test_batch_size, num_workers=num_workers,
+                                        pin_memory=pin)
     data['scaler'] = scaler
     return data
 
