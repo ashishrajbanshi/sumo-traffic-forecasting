@@ -54,6 +54,7 @@ def generate_graph_seq2seq_io_data(
 
 
 def generate_train_val_test(args):
+    os.makedirs(args.output_dir, exist_ok=True)
     df = pd.read_hdf(args.traffic_df_filename, key=args.key)
     # 0 is the latest observed sample.
     x_offsets = np.sort(
